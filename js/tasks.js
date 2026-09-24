@@ -188,6 +188,7 @@ export function renderTasksView(root, ctx) {
     h('h1', { text: 'Tasks' }),
     h('div', { class: 'btn-row tight' },
       state.settings.gcalConnected ? h('button', { class: 'btn btn-small', type: 'button', onclick: ctx.onSync }, 'Sync') : null,
+      h('button', { class: 'btn btn-small', type: 'button', 'aria-label': 'Import from syllabus', onclick: ctx.onSyllabus }, '📄'),
       h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: ctx.onAdd }, '+ Add'))));
 
   // Calendar events that need a course assigned.
@@ -208,7 +209,7 @@ export function renderTasksView(root, ctx) {
 
   const visible = filter === 'all' ? state.tasks : state.tasks.filter((t) => t.courseId === filter);
   if (!state.tasks.length) {
-    root.append(emptyState('No tasks yet – tap + Add to create one.'));
+    root.append(emptyState('No tasks yet – tap + Add to create one, or 📄 to paste a course outline.'));
     return;
   }
   if (!visible.length) {

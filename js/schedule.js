@@ -123,6 +123,14 @@ export function renderWeekView(root, ctx) {
     h('button', { class: 'btn btn-small', type: 'button', onclick: () => ctx.setWeek(addDays(todayKey, -weekdayIndex(todayKey))) }, 'Today'),
   ));
 
+  // "Plan my week" fills free time with study blocks (Stage 3).
+  if (ctx.onPlan) {
+    const hasBlocks = ctx.hasBlocksThisWeek && ctx.hasBlocksThisWeek(weekKey);
+    root.append(h('div', { class: 'plan-row' },
+      h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: () => ctx.onPlan(weekKey) }, hasBlocks ? '↻ Re-plan week' : '✎ Plan my week'),
+      h('span', { class: 'hint plan-hint', text: 'Adds study blocks around your classes.' })));
+  }
+
   // Notes for unusual days this week (breaks, make-up days).
   const notes = keys.map((k) => ({ k, note: dayNote(state.settings, k) })).filter((x) => x.note);
   if (notes.length) {

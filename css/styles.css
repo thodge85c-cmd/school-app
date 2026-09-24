@@ -428,6 +428,73 @@ input, select, textarea { font: inherit; color: inherit; }
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
 }
 
+/* --- Study blocks (Stage 3) ---------------------------------------------------- */
+
+.plan-row { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.plan-hint { margin: 0; }
+.study-block {
+  position: absolute;
+  left: 2px; right: 2px;
+  padding: 3px;
+  border: 2px dashed var(--c);
+  border-radius: 6px;
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--c) 18%, transparent) 5px 8px);
+  color: var(--c);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: left;
+  overflow: hidden;
+}
+.study-block.done { opacity: 0.45; text-decoration: line-through; }
+.sb-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.class-row.study { border-left-style: dashed; }
+
+/* --- Grades (Stage 4) ------------------------------------------------------------ */
+
+.grade-card { border-left: 5px solid var(--c); }
+.grade-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.grade-avg { text-align: right; }
+.grade-avg .letter { display: block; font-size: 13px; font-weight: 700; color: var(--muted); }
+.progress { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; }
+.progress-fill { height: 100%; background: var(--c); border-radius: 4px; }
+.need { margin: 8px 0 4px; font-size: 15px; }
+.need-impossible { color: var(--danger); }
+.need-locked { color: var(--course-green); }
+.warn { color: var(--course-orange); }
+.graded-list { margin-top: 8px; }
+.graded-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; border: 0; background: none; text-align: left; padding: 4px 0; }
+.graded-title { flex: 1; font-weight: 600; }
+.graded-mark { font-weight: 700; }
+.small { font-size: 13px; }
+
+/* --- Notes & syllabus (Stage 5) -------------------------------------------------- */
+
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.note-add { display: flex; flex-direction: column; gap: 8px; }
+.note-add .btn { align-self: flex-end; }
+.note-list { display: flex; flex-direction: column; gap: 8px; }
+.note { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.note p { margin: 0 0 4px; white-space: pre-wrap; }
+.note-meta { display: flex; justify-content: space-between; align-items: center; }
+.link-btn { border: 0; background: none; color: var(--danger); font-size: 13px; font-weight: 600; min-height: 32px; padding: 0 6px; }
+textarea { width: 100%; min-height: 60px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); font-size: 16px; resize: vertical; }
+.faded { opacity: 0.5; }
+.draft-title { flex: 1; }
+.switch-row .draft-title { min-width: 0; }
+
+/* --- Exam mode (Stage 5) ------------------------------------------------------------ */
+
+.exam-banner { border-left: 5px solid var(--accent); }
+.exam-list li + li, .plan-list li + li { border-top: 1px solid var(--border); }
+.exam-days { color: var(--accent); }
+.plan-day { display: flex; gap: 12px; padding: 10px 0; }
+.plan-day.today { background: color-mix(in srgb, var(--accent) 6%, transparent); margin: 0 -16px; padding: 10px 16px; }
+.plan-date { flex: 0 0 90px; font-size: 14px; }
+.plan-items { flex: 1; display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 14px; }
+.plan-item { display: inline-flex; align-items: center; gap: 4px; }
+
 /* --- Forms ------------------------------------------------------------------- */
 
 .form { display: flex; flex-direction: column; gap: 12px; }

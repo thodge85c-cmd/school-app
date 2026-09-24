@@ -12,8 +12,8 @@
 
 import * as storage from './storage.js';
 import {
-  dayKey, weekStart, formatLongDate, greetingFor, countdown, timeLeft, formatDue,
-  formatRange, formatKey, weekdayIndex, fromLocal, DAYS_LONG,
+  dayKey, weekStart, addDays, daysBetween, formatLongDate, greetingFor, countdown, timeLeft, formatDue,
+  formatRange, formatKey, weekdayIndex, weekdayName, fromLocal, parts, DAYS_LONG,
 } from './dates.js';
 import { h, clear, openSheet, closeSheet, isSheetOpen, toast, emptyState } from './ui.js';
 import { nextClass, classesOn, dayNote, locationText, renderWeekView } from './schedule.js';
@@ -22,6 +22,10 @@ import {
 } from './tasks.js';
 import { renderSettingsView } from './settings.js';
 import { sync as gcalSync, hasValidToken, assignReviewItem, ignoreReviewItem } from './gcal.js';
+import { planWeek, clearWeek, blocksOn } from './planner.js';
+import { renderGradesView } from './grades.js';
+import { parseSyllabus, taskFromDraft } from './syllabus.js';
+import { TASK_TYPES } from './storage.js';
 
 const TABS = ['home', 'week', 'tasks', 'grades', 'settings'];
 
@@ -88,6 +92,13 @@ function render() {
 
 // --- Home tab --------------------------------------------------------------
 
+function inExamPeriod(now) {
+  const s = state.settings;
+  if (s.examModePreview) return true;
+  const k = dayKey(now);
+  return Boolean(s.examStart && s.examEnd && k >= s.examStart && k <= s.examEnd);
+}
+
 function renderHome() {
   const now = new Date();
   const today = dayKey(now);
@@ -98,6 +109,12 @@ function renderHome() {
     h('div', {},
       h('h1', { text: `${greetingFor(now)}${name ? `, ${name}` : ''}` }),
       h('p', { class: 'subtitle', text: formatLongDate(now) }))));
+
+  // Exam mode (Stage 5): during the exam period the Home tab becomes an exam dashboard.
+  if (inExamPeriod(now)) {
+    renderExamMode(now);
+    return;
+  }
 
   // "Up Next" card
   const next = nextClass(state, now);
@@ -128,8 +145,9 @@ function renderHome() {
       ? h('ul', { class: 'task-list' }, soon.map((t) => taskRow(state, t, { now, onToggle: toggleTask, onEdit: editTask })))
       : emptyState(state.tasks.length ? 'Nothing due in the next 3 days.' : 'No tasks yet – add one on the Tasks tab.')));
 
-  // "Today"
+  // "Today" – classes and study blocks
   const todays = classesOn(state, today);
+  const studyToday = blocksOn(state, today);
   const note = dayNote(state.settings, today);
   view.append(h('section', { class: 'card' },
     h('h2', { text: 'Today' }),
@@ -146,7 +164,85 @@ function renderHome() {
               h('span', { class: 'class-title', text: `${item.course.code} · ${item.session.type}` }),
               h('span', { class: 'class-sub', text: locationText(item.session) }))));
       }))
-      : emptyState(note ? 'Enjoy the day off.' : 'No classes today.')));
+      : emptyState(note ? 'Enjoy the day off.' : 'No classes today.'),
+    studyToday.length ? h('h3', { text: 'Study blocks' }) : null,
+    studyToday.length ? h('ul', { class: 'class-list' }, studyToday.map((b) => {
+      const task = state.tasks.find((t) => t.id === b.taskId);
+      const course = task ? courseById(state, task.courseId) : null;
+      return h('li', {},
+        h('button', { class: `class-row study colour-${course?.colour || 'blue'}${b.done ? ' past' : ''}`, type: 'button', onclick: () => openStudyBlock(b) },
+          h('span', { class: 'class-time', text: `${b.start}–${b.end}` }),
+          h('span', { class: 'class-main' },
+            h('span', { class: 'class-title', text: task ? task.title : 'Study' }),
+            h('span', { class: 'class-sub', text: b.done ? 'Done ✓' : (course?.code || '') }))));
+    })) : null));
+}
+
+/** Exam-period Home: a countdown per exam plus a day-by-day study split. */
+function renderExamMode(now) {
+  const today = dayKey(now);
+  const exams = state.tasks
+    .filter((t) => !t.done && (t.type === 'Final' || t.type === 'Midterm') && new Date(t.dueDate) >= now)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+  view.append(h('section', { class: 'card exam-banner' },
+    h('span', { class: 'eyebrow', text: 'Exam mode' }),
+    h('p', { class: 'muted', text: state.settings.examModePreview ? 'Preview is on (turn it off in Settings).' : 'Good luck – you\'ve got this.' })));
+
+  if (!exams.length) {
+    view.append(h('section', { class: 'card' },
+      h('h2', { text: 'Exams' }),
+      emptyState('No upcoming exams found. Add your exams as tasks with type "Final" and they will show up here.')));
+    return;
+  }
+
+  // Countdown cards.
+  view.append(h('section', { class: 'card' },
+    h('h2', { text: 'Countdown' }),
+    h('ul', { class: 'exam-list' }, exams.map((t) => {
+      const course = courseById(state, t.courseId);
+      const days = daysBetween(today, dayKey(new Date(t.dueDate)));
+      const label = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`;
+      return h('li', {},
+        h('button', { class: `class-row colour-${course?.colour || 'blue'}`, type: 'button', onclick: () => editTask(t) },
+          h('span', { class: 'class-time exam-days', text: label }),
+          h('span', { class: 'class-main' },
+            h('span', { class: 'class-title', text: `${course?.code || ''} · ${t.title}` }),
+            h('span', { class: 'class-sub', text: `${formatDue(new Date(t.dueDate), now)}${t.weight ? ` · ${t.weight}%` : ''}` }))));
+    }))));
+
+  // Day-by-day plan: split each day's study hours across exams still ahead,
+  // giving more to heavier exams and to whichever is coming up soonest.
+  const hoursPerDay = Number(state.settings.maxStudyHoursPerDay) || 3;
+  const lastKey = dayKey(new Date(exams[exams.length - 1].dueDate));
+  const span = Math.min(daysBetween(today, lastKey), 21);
+  const plan = [];
+  for (let i = 0; i <= span; i++) {
+    const key = addDays(today, i);
+    const ahead = exams.filter((t) => dayKey(new Date(t.dueDate)) >= key);
+    if (!ahead.length) break;
+    const scored = ahead.map((t) => {
+      const d = Math.max(0.5, daysBetween(key, dayKey(new Date(t.dueDate))) + 0.5);
+      return { t, score: (Number(t.weight) || 10) / d };
+    });
+    const total = scored.reduce((sum, x) => sum + x.score, 0);
+    const split = scored
+      .map((x) => ({ t: x.t, hours: Math.round((x.score / total) * hoursPerDay * 2) / 2 }))
+      .filter((x) => x.hours > 0)
+      .sort((a, b) => b.hours - a.hours);
+    plan.push({ key, split, examToday: ahead.filter((t) => dayKey(new Date(t.dueDate)) === key) });
+  }
+
+  view.append(h('section', { class: 'card' },
+    h('h2', { text: 'Study plan' }),
+    h('p', { class: 'hint', text: `About ${hoursPerDay} h a day, weighted toward the nearest and heaviest exams. Change the hours in Settings.` }),
+    h('ul', { class: 'plan-list' }, plan.map((d) => h('li', { class: `plan-day${d.key === today ? ' today' : ''}` },
+      h('div', { class: 'plan-date' }, h('strong', { text: weekdayName(d.key) }), h('span', { class: 'muted', text: ` ${formatKey(d.key)}` })),
+      h('div', { class: 'plan-items' },
+        d.examToday.map((t) => h('span', { class: `pill colour-${courseById(state, t.courseId)?.colour || 'blue'}`, text: `EXAM · ${courseById(state, t.courseId)?.code || t.title}` })),
+        d.split.map((x) => h('span', { class: 'plan-item' },
+          h('i', { class: `dot colour-${courseById(state, x.t.courseId)?.colour || 'blue'}` }),
+          ` ${courseById(state, x.t.courseId)?.code || x.t.title} · ${x.hours} h`))))))));
 }
 
 // --- Week tab --------------------------------------------------------------
@@ -160,7 +256,66 @@ function renderWeek() {
     openCourse: (course) => openCourseSheet(course),
     openDay: (key) => openDaySheet(key),
     tasksDueOn: (key) => tasksDueOn(state, key).map((t) => ({ ...t, colour: courseById(state, t.courseId)?.colour || 'blue' })),
+    onPlan: (weekKey) => planStudyWeek(weekKey),
+    hasBlocksThisWeek: (weekKey) => state.studyBlocks.some((b) => b.date >= weekKey && b.date <= addDays(weekKey, 6)),
+    extraBlocks: (key, yFor, hourPx) => renderStudyBlocks(key, yFor),
   });
+}
+
+// --- Study blocks (Stage 3) ----------------------------------------------------
+
+/** Draw this day's study blocks as striped, outlined blocks on the Week grid. */
+function renderStudyBlocks(key, yFor) {
+  const out = [];
+  for (const b of blocksOn(state, key)) {
+    const startMin = Number(b.start.slice(0, 2)) * 60 + Number(b.start.slice(3));
+    const endMin = Number(b.end.slice(0, 2)) * 60 + Number(b.end.slice(3));
+    const top = yFor(startMin);
+    const height = Math.max(yFor(endMin) - top, 16);
+    const task = state.tasks.find((t) => t.id === b.taskId);
+    const course = task ? courseById(state, task.courseId) : null;
+    out.push(h('button', {
+      class: `study-block colour-${course?.colour || 'blue'}${b.done ? ' done' : ''}`, type: 'button',
+      style: { top: `${top}px`, height: `${height}px` },
+      'aria-label': `Study ${task ? task.title : ''}`,
+      onclick: () => openStudyBlock(b),
+    }, h('span', { class: 'sb-title', text: task ? task.title : 'Study' })));
+  }
+  return out;
+}
+
+/** Generate study blocks for the week (or re-plan if some exist). */
+function planStudyWeek(weekKey) {
+  const hasBlocks = state.studyBlocks.some((b) => b.date >= weekKey && b.date <= addDays(weekKey, 6));
+  if (hasBlocks) clearWeek(state, weekKey, new Date());
+  const created = planWeek(state, weekKey, new Date());
+  state.studyBlocks.push(...created);
+  commit();
+  if (!created.length) {
+    toast(state.tasks.some((t) => !t.done) ? 'No free time to fill this week.' : 'No unfinished tasks to plan.', 3500);
+  } else {
+    toast(`Planned ${created.length} study block${created.length === 1 ? '' : 's'}.`);
+  }
+}
+
+/** Tap a study block: mark done or delete. */
+function openStudyBlock(block) {
+  const task = state.tasks.find((t) => t.id === block.taskId);
+  openSheet('Study block', [
+    h('p', {}, h('strong', { text: task ? task.title : 'Study' })),
+    h('p', { class: 'muted', text: `${formatKey(block.date)} · ${block.start}–${block.end}` }),
+    task ? h('p', { class: 'hint', text: `${courseById(state, task.courseId)?.code || ''} · due ${formatDue(new Date(task.dueDate), new Date())}` }) : null,
+    h('div', { class: 'form-actions' },
+      h('button', { class: 'btn btn-danger', type: 'button', onclick: () => {
+        state.studyBlocks = state.studyBlocks.filter((b) => b.id !== block.id);
+        closeSheet(); commit(); toast('Block removed');
+      } }, 'Delete'),
+      h('button', { class: 'btn btn-primary', type: 'button', onclick: () => {
+        const b = state.studyBlocks.find((x) => x.id === block.id);
+        if (b) b.done = !b.done;
+        closeSheet(); commit();
+      } }, block.done ? 'Mark not done' : 'Mark done')),
+  ]);
 }
 
 // --- Tasks tab -------------------------------------------------------------
@@ -176,7 +331,61 @@ function renderTasks() {
     onToggle: toggleTask,
     onSync: () => syncNow(),
     onReview: () => openReviewSheet(),
+    onSyllabus: () => openSyllabusSheet(),
   });
+}
+
+// --- Syllabus import (Stage 5) ---------------------------------------------------
+
+/** Paste a course outline, pick the course, preview the drafts, then save. */
+function openSyllabusSheet() {
+  if (!state.courses.length) { toast('Add a course in Settings first.'); return; }
+  const courseSel = h('select', {}, state.courses.map((c) => h('option', { value: c.id, text: `${c.code} – ${c.name}` })));
+  const yearSel = h('select', {}, [0, 1].map((i) => { const y = parts(new Date()).year + i; return h('option', { value: String(y), text: String(y) }); }));
+  const textarea = h('textarea', { rows: 8, placeholder: 'Paste your course outline here, e.g.\nMidterm 1 – Oct 15 – 25%\nFinal exam – Dec 10 – 40%' });
+  const preview = h('div', { class: 'stack' });
+  let drafts = [];
+
+  const drawPreview = () => {
+    clear(preview);
+    if (!drafts.length) { preview.append(emptyState('No dated lines found yet. Each line needs a date like "Oct 15".')); return; }
+    preview.append(h('p', { class: 'hint', text: `${drafts.length} draft${drafts.length === 1 ? '' : 's'} found. Untick any you don't want, fix titles or weights, then save.` }));
+    for (const d of drafts) {
+      preview.append(h('div', { class: `mini-card${d.include ? '' : ' faded'}` },
+        h('label', { class: 'switch-row' },
+          h('input', { type: 'text', value: d.title, class: 'draft-title', oninput: (e) => { d.title = e.target.value; } }),
+          h('input', { type: 'checkbox', checked: d.include, onchange: (e) => { d.include = e.target.checked; drawPreview(); } })),
+        h('div', { class: 'row' },
+          h('select', { onchange: (e) => { d.type = e.target.value; } }, TASK_TYPES.map((t) => h('option', { value: t, text: t, selected: t === d.type }))),
+          h('input', { type: 'date', value: d.dateKey, onchange: (e) => { d.dateKey = e.target.value; } })),
+        h('div', { class: 'row' },
+          h('input', { type: 'number', min: 0, max: 100, step: 0.5, placeholder: 'Weight %', value: d.weight, oninput: (e) => { d.weight = Number(e.target.value) || 0; } }),
+          h('input', { type: 'time', value: d.time, onchange: (e) => { d.time = e.target.value || '23:59'; } })),
+        h('span', { class: 'hint small', text: `From: "${d.line}"` })));
+    }
+  };
+
+  const form = h('div', { class: 'form' },
+    h('div', { class: 'row' },
+      h('label', { class: 'field' }, h('span', { class: 'field-label', text: 'Course' }), courseSel),
+      h('label', { class: 'field' }, h('span', { class: 'field-label', text: 'Year for dates without one' }), yearSel)),
+    h('label', { class: 'field' }, h('span', { class: 'field-label', text: 'Course outline text' }), textarea),
+    h('button', { class: 'btn', type: 'button', onclick: () => {
+      drafts = parseSyllabus(textarea.value, { defaultYear: Number(yearSel.value) });
+      drawPreview();
+    } }, 'Find dates & weights'),
+    h('h3', { text: 'Preview' }),
+    preview,
+    h('div', { class: 'form-actions' },
+      h('button', { class: 'btn btn-primary', type: 'button', onclick: () => {
+        const chosen = drafts.filter((d) => d.include && d.dateKey);
+        if (!chosen.length) { toast('Nothing to save yet.'); return; }
+        for (const d of chosen) state.tasks.push(taskFromDraft(d, courseSel.value));
+        closeSheet(); commit();
+        toast(`Added ${chosen.length} task${chosen.length === 1 ? '' : 's'}`);
+      } }, 'Save tasks')));
+  drawPreview();
+  openSheet('Import from syllabus', form);
 }
 
 // --- Google Calendar -----------------------------------------------------------
@@ -271,18 +480,10 @@ function toggleTask(task) {
   if (openSheetRefresh) openSheetRefresh();
 }
 
-// --- Grades tab (placeholder until Stage 4) --------------------------------
+// --- Grades tab (Stage 4) --------------------------------------------------
 
 function renderGrades() {
-  clear(view);
-  view.append(h('div', { class: 'page-header' }, h('h1', { text: 'Grades' })));
-  view.append(h('section', { class: 'card' },
-    h('p', { class: 'muted', text: 'Grade tracking arrives in Stage 4. For now, here are your targets:' }),
-    h('ul', { class: 'list' }, state.courses.map((c) => h('li', { class: 'list-row static' },
-      h('i', { class: `dot dot-lg colour-${c.colour}` }),
-      h('span', { class: 'list-main' },
-        h('span', { class: 'list-title', text: c.code }),
-        h('span', { class: 'list-sub', text: `Target ${c.targetGrade}%` })))))));
+  renderGradesView(view, { state, onEdit: editTask });
 }
 
 // --- Sheets shared by several tabs ------------------------------------------
@@ -313,9 +514,35 @@ function openCourseSheet(course) {
       ? h('ul', { class: 'task-list' }, tasks.map((t) => taskRow(state, t, { now, showCourse: false, onToggle: toggleTask, onEdit: editTask })))
       : emptyState('Nothing upcoming for this course.'),
     h('button', { class: 'btn', type: 'button', onclick: () => addTask({ courseId: fresh.id }) }, '+ Add task'),
+    h('h3', { text: 'Notes' }),
+    notesSection(fresh),
   ];
   openSheet(fresh.code, content, { onClose: () => { openSheetRefresh = null; } });
   openSheetRefresh = () => openCourseSheet(fresh);
+}
+
+/** Quick notes for a course, newest first. */
+function notesSection(course) {
+  const notes = state.notes.filter((n) => n.courseId === course.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const input = h('textarea', { rows: 2, placeholder: 'Jot something down… (office hours, textbook chapters, reminders)' });
+  const add = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    state.notes.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), courseId: course.id, text, createdAt: new Date().toISOString() });
+    commit();
+    openSheetRefresh?.();
+  };
+  return h('div', { class: 'notes' },
+    h('div', { class: 'note-add' }, input, h('button', { class: 'btn btn-small', type: 'button', onclick: add }, 'Add note')),
+    notes.length
+      ? h('ul', { class: 'note-list' }, notes.map((n) => h('li', { class: 'note' },
+        h('p', { text: n.text }),
+        h('div', { class: 'note-meta' },
+          h('span', { class: 'muted small', text: formatDue(new Date(n.createdAt), new Date()).replace(/^Today, /, 'Today ') }),
+          h('button', { class: 'link-btn', type: 'button', onclick: () => {
+            state.notes = state.notes.filter((x) => x.id !== n.id); commit(); openSheetRefresh?.();
+          } }, 'Delete')))))
+      : emptyState('No notes yet.'));
 }
 
 /** One day: its classes and everything due that day. */

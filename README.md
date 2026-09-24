@@ -19,6 +19,10 @@ Live site (once GitHub Pages is turned on): <https://thodge85c-cmd.github.io/sch
 | `js/schedule.js` | Timetable logic (what's on today, what's next) and the Week tab grid. |
 | `js/tasks.js` | Assignments/exams: grouping, the add/edit form, the Tasks tab. |
 | `js/settings.js` | The Settings tab: courses, term dates, your routine, backups. |
+| `js/gcal.js` | Google Calendar read-only sync and course matching. |
+| `js/planner.js` | The study-block generator behind "Plan my week". |
+| `js/grades.js` | Grade maths, Guelph letter scale, and the Grades tab. |
+| `js/syllabus.js` | Turns pasted course outlines into draft tasks. |
 | `js/ui.js` | Small helpers for building the screen, bottom sheets, confirm boxes, toasts. |
 | `service-worker.js` | Caches the app so it opens offline. Has the cache version number. |
 | `manifest.json` | Tells the phone the app's name, icon and colours when installed. |
@@ -128,6 +132,39 @@ it if the token is still fresh; otherwise tap **Sync** on the Tasks tab. On
 an iPhone home-screen app the sign-in opens in a small Safari window and
 returns to the app when done.
 
+## Study planner (Stage 3)
+
+On the Week tab, tap **Plan my week**. The app finds your free time (between
+wake and bed time, skipping classes plus a 15-minute buffer) and fills it
+with study blocks for your unfinished tasks. Heavier and sooner tasks get
+time first, up to each task's "Study hours" estimate. Nothing is scheduled
+after a task's due date, and no more than the daily maximum (Settings, default
+3 hours). Study blocks appear striped and dashed so they look different from
+classes. Tap one to mark it done or delete it. **Re-plan week** clears the
+unfinished blocks and starts over; done blocks stay.
+
+## Grades (Stage 4)
+
+Tap a task and fill in the **Grade** box as marks come back. The Grades tab
+then shows, per course, your weighted average so far, how much of the course
+is graded, and a "What do I need?" line telling you the average required on
+the remaining work to hit your target, or whether the target is already
+locked in or out of reach. Letters follow the Guelph scale. The formula is
+explained in plain words at the bottom of the tab.
+
+## Syllabus import, notes, exam mode (Stage 5)
+
+- **Syllabus import:** on the Tasks tab tap 📄, pick the course, paste your
+  course outline, and tap *Find dates & weights*. Every line containing a
+  date (e.g. "Midterm – Oct 15 – 25%") becomes a draft you can edit or untick
+  before saving. Nothing is saved until you tap *Save tasks*.
+- **Notes:** open any course (tap a class block or a class on Home) and use
+  the Notes section at the bottom. Newest first.
+- **Exam mode:** between the exam start and end dates in Settings, the Home
+  tab switches to a countdown for each exam (tasks of type Final or Midterm)
+  and a day-by-day study split. You can preview it any time with the toggle
+  in Settings.
+
 ## Pushing an update
 
 1. Edit the files.
@@ -150,6 +187,6 @@ returns to the app when done.
 
 - **Stage 1 (done):** Home, Week, Tasks and Settings tabs; offline; backups.
 - **Stage 2 (done):** Read-only Google Calendar sync.
-- **Stage 3:** "Plan my week" study-block generator.
-- **Stage 4:** Grades tab with "what do I need?" maths.
-- **Stage 5:** Syllabus paste-to-tasks, per-course notes, exam mode.
+- **Stage 3 (done):** "Plan my week" study-block generator.
+- **Stage 4 (done):** Grades tab with "what do I need?" maths.
+- **Stage 5 (done):** Syllabus paste-to-tasks, per-course notes, exam mode.

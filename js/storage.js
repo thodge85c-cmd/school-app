@@ -13,7 +13,7 @@ import { uid } from './ui.js';
 
 export const STORAGE_KEY = 'uniPlanner.v1';   // the one localStorage key (kept as-is so backups stay compatible)
 export const DATA_VERSION = 1;                 // bump when the data shape changes, and add a migration below
-export const APP_VERSION = '1.0.0';            // shown on the Settings tab
+export const APP_VERSION = '1.1.0';            // shown on the Settings tab
 
 /** Colour names a course can use. The actual shades are in styles.css. */
 export const COLOURS = ['blue', 'orange', 'green', 'purple', 'red', 'teal', 'pink', 'yellow'];

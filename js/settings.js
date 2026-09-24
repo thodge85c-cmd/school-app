@@ -213,7 +213,10 @@ function dailySection(ctx) {
       field('Max study hours per day', bound('maxStudyHoursPerDay', h('input', { type: 'number', min: 0.5, max: 12, step: 0.5, inputmode: 'decimal', value: s.maxStudyHoursPerDay ?? 3 }), Number))),
     h('label', { class: 'switch-row' },
       h('span', { text: 'Show Saturday and Sunday on the Week tab' }),
-      h('input', { type: 'checkbox', role: 'switch', checked: s.showWeekend !== false, onchange: (e) => { s.showWeekend = e.target.checked; ctx.commit(); } })));
+      h('input', { type: 'checkbox', role: 'switch', checked: s.showWeekend !== false, onchange: (e) => { s.showWeekend = e.target.checked; ctx.commit(); } })),
+    h('label', { class: 'switch-row' },
+      h('span', {}, 'Preview exam mode on Home', h('br'), h('span', { class: 'hint', text: 'Turns on by itself during the exam period.' })),
+      h('input', { type: 'checkbox', role: 'switch', checked: Boolean(s.examModePreview), onchange: (e) => { s.examModePreview = e.target.checked; ctx.commit(); } })));
 }
 
 // --- Google Calendar ---------------------------------------------------------

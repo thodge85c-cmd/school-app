@@ -10,7 +10,7 @@
  * (v1 → v2 → v3 …). Old caches are deleted automatically.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `grif-planner-${CACHE_VERSION}`;
 
 // Every file the app needs to run offline. Add new files here as the app grows.
@@ -27,6 +27,9 @@ const FILES = [
   './js/tasks.js',
   './js/settings.js',
   './js/gcal.js',
+  './js/planner.js',
+  './js/grades.js',
+  './js/syllabus.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png',
