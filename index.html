@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover lets the app draw under the iPhone notch; CSS adds safe-area padding back. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grif Planner</title>
+  <meta name="description" content="Timetable, tasks and grades for a University of Guelph student.">
+
+  <!-- Colour of the browser/status bar area, in light and dark mode. -->
+  <meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)">
+
+  <!-- iPhone "Add to Home Screen" settings. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Grif Planner">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <!-- The current tab's content is drawn in here by js/app.js -->
+  <main id="view" class="view" aria-live="polite"></main>
+
+  <!-- Bottom tab bar -->
+  <nav class="tabbar" aria-label="Main">
+    <button class="tab" type="button" data-tab="home" aria-label="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="tab" type="button" data-tab="week" aria-label="Week">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 5v9h14v-9zM7 2h2v4H7zm8 0h2v4h-2z"/></svg>
+      <span>Week</span>
+    </button>
+    <button class="tab" type="button" data-tab="tasks" aria-label="Tasks">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v2H9zm0 6h11v2H9zm0 6h11v2H9zM4 4.5l1.5 1.5L8 3.5 9 4.5 5.5 8 3 5.5zm0 6 1.5 1.5L8 9.5l1 1L5.5 14 3 11.5zm0 6 1.5 1.5L8 15.5l1 1L5.5 20 3 17.5z"/></svg>
+      <span>Tasks</span>
+    </button>
+    <button class="tab" type="button" data-tab="grades" aria-label="Grades">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/></svg>
+      <span>Grades</span>
+    </button>
+    <button class="tab" type="button" data-tab="settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.9 5.3.1-1.3-.1-1.3 2-1.6-2-3.4-2.4 1a7.3 7.3 0 0 0-2.2-1.3L15.8 2H8.2l-.5 2.4a7.3 7.3 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a8 8 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.3 7.3 0 0 0 2.2 1.3l.5 2.4h7.6l.5-2.4a7.3 7.3 0 0 0 2.2-1.3l2.4 1 2-3.4z"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <script type="module" src="./js/app.js"></script>
+  <noscript><p style="padding:1rem">Grif Planner needs JavaScript turned on.</p></noscript>
+</body>
+</html>
