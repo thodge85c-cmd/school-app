@@ -9,6 +9,8 @@
 import { DAYS, dayKey } from './dates.js';
 import { h, clear, uid, openSheet, closeSheet, confirmDialog, field, select, toast, emptyState } from './ui.js';
 import { COLOURS, SESSION_TYPES, APP_VERSION, exportJSON, parseImport, reset } from './storage.js';
+import { getClientId, getToken, listCalendars, clearToken } from './gcal.js';
+import { formatDue } from './dates.js';
 
 /** Draw the Settings tab. ctx = { state, now, commit, replaceState, rerender } */
 export function renderSettingsView(root, ctx) {
@@ -17,6 +19,7 @@ export function renderSettingsView(root, ctx) {
   root.append(coursesSection(ctx));
   root.append(termSection(ctx));
   root.append(dailySection(ctx));
+  root.append(gcalSection(ctx));
   root.append(dataSection(ctx));
   root.append(aboutSection(ctx));
 }
@@ -211,6 +214,71 @@ function dailySection(ctx) {
     h('label', { class: 'switch-row' },
       h('span', { text: 'Show Saturday and Sunday on the Week tab' }),
       h('input', { type: 'checkbox', role: 'switch', checked: s.showWeekend !== false, onchange: (e) => { s.showWeekend = e.target.checked; ctx.commit(); } })));
+}
+
+// --- Google Calendar ---------------------------------------------------------
+
+function gcalSection(ctx) {
+  const { state } = ctx;
+  const g = state.gcal;
+  const s = state.settings;
+  const connected = s.gcalConnected;
+
+  const clientIdInput = h('input', {
+    type: 'text', value: s.gcalClientId || '', placeholder: '1234567890-abc.apps.googleusercontent.com',
+    autocomplete: 'off', autocapitalize: 'off', spellcheck: false,
+    onchange: (e) => { s.gcalClientId = e.target.value.trim(); ctx.commit(); },
+  });
+
+  /** Sign in (pop-up) and fetch the list of calendars to choose from. */
+  const connect = async () => {
+    try {
+      const token = await getToken(state, { interactive: true });
+      const cals = await listCalendars(token);
+      g.calendars = cals;                       // remembered so the checkboxes work offline
+      if (!g.calendarIds.length) g.calendarIds = cals.filter((c) => c.primary).map((c) => c.id);
+      s.gcalConnected = true;
+      ctx.commit();
+      toast('Connected to Google Calendar');
+    } catch (err) {
+      toast(err.message || 'Could not connect.', 4000);
+    }
+  };
+
+  const disconnect = async () => {
+    if (!(await confirmDialog('Disconnect Google Calendar? Tasks already imported are kept.', { okLabel: 'Disconnect', danger: true }))) return;
+    clearToken();
+    s.gcalConnected = false;
+    g.calendars = [];
+    g.calendarIds = [];
+    g.review = [];
+    ctx.commit();
+  };
+
+  const calendarList = (g.calendars || []).length
+    ? h('div', { class: 'stack' }, (g.calendars || []).map((c) => h('label', { class: 'switch-row' },
+      h('span', { text: c.name }),
+      h('input', { type: 'checkbox', role: 'switch', checked: g.calendarIds.includes(c.id), onchange: (e) => {
+        g.calendarIds = e.target.checked ? [...g.calendarIds, c.id] : g.calendarIds.filter((id) => id !== c.id);
+        ctx.commit();
+      } }))))
+    : null;
+
+  return h('section', { class: 'card' },
+    h('h2', { text: 'Google Calendar' }),
+    h('p', { class: 'hint', text: 'Read-only. Events that mention a course (like "ACCT midterm") become tasks. Nothing is ever written to your calendar.' }),
+    getClientId(state) ? null : field('Google Client ID', clientIdInput, 'One-time setup – the README explains how to get this.'),
+    getClientId(state) && !connected ? h('div', { class: 'btn-row' }, h('button', { class: 'btn btn-primary', type: 'button', onclick: connect }, 'Connect Google Calendar')) : null,
+    connected ? [
+      h('h3', { text: 'Calendars to sync' }),
+      calendarList || h('p', { class: 'hint', text: 'Tap "Refresh calendars" to load your list.' }),
+      h('p', { class: 'hint', text: g.lastSync ? `Last synced ${formatDue(new Date(g.lastSync), ctx.now)}` : 'Not synced yet.' }),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => ctx.syncNow() }, 'Sync now'),
+        h('button', { class: 'btn', type: 'button', onclick: connect }, 'Refresh calendars'),
+        h('button', { class: 'btn btn-danger', type: 'button', onclick: disconnect }, 'Disconnect')),
+      s.gcalClientId ? field('Google Client ID', clientIdInput) : null,
+    ] : null);
 }
 
 // --- Backup / restore --------------------------------------------------------

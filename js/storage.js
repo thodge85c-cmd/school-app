@@ -82,6 +82,7 @@ export function defaultState() {
       displayName: 'Trent',
       showWeekend: true,
       gcalConnected: false,
+      gcalClientId: '',        // Google Web client ID (can also be set in js/gcal.js)
     },
   };
 }

@@ -186,7 +186,17 @@ export function renderTasksView(root, ctx) {
 
   root.append(h('div', { class: 'page-header' },
     h('h1', { text: 'Tasks' }),
-    h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: ctx.onAdd }, '+ Add')));
+    h('div', { class: 'btn-row tight' },
+      state.settings.gcalConnected ? h('button', { class: 'btn btn-small', type: 'button', onclick: ctx.onSync }, 'Sync') : null,
+      h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: ctx.onAdd }, '+ Add'))));
+
+  // Calendar events that need a course assigned.
+  const review = state.gcal?.review || [];
+  if (review.length) {
+    root.append(h('button', { class: 'card banner', type: 'button', onclick: ctx.onReview },
+      h('strong', { text: `${review.length} calendar event${review.length === 1 ? '' : 's'} to review` }),
+      h('span', { class: 'muted', text: 'Assign a course or ignore them ›' })));
+  }
 
   // Filter chips: All, then one per course.
   root.append(h('div', { class: 'chips', role: 'tablist' },

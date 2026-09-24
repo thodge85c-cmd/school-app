@@ -195,6 +195,11 @@ input, select, textarea { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 
+.btn-row.tight { margin: 0; gap: 8px; flex-wrap: nowrap; }
+.banner { display: flex; flex-direction: column; gap: 2px; border-left: 5px solid var(--accent); }
+.review-list { display: flex; flex-direction: column; gap: 10px; }
+.review-list .row { align-items: center; }
+
 /* --- Chips (filters) ------------------------------------------------------- */
 
 .chips {

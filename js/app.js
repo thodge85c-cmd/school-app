@@ -21,6 +21,7 @@ import {
   renderTasksView, openTaskForm, dueSoon, tasksDueOn, taskRow, upcomingForCourse, courseById,
 } from './tasks.js';
 import { renderSettingsView } from './settings.js';
+import { sync as gcalSync, hasValidToken, assignReviewItem, ignoreReviewItem } from './gcal.js';
 
 const TABS = ['home', 'week', 'tasks', 'grades', 'settings'];
 
@@ -48,7 +49,7 @@ function replaceState(next) {
 
 /** Everything a tab needs to do its job. */
 function ctx() {
-  return { state, now: new Date(), commit, replaceState, rerender: render };
+  return { state, now: new Date(), commit, replaceState, rerender: render, syncNow };
 }
 
 // --- Tabs ------------------------------------------------------------------
@@ -173,7 +174,64 @@ function renderTasks() {
     onAdd: () => addTask(),
     onEdit: editTask,
     onToggle: toggleTask,
+    onSync: () => syncNow(),
+    onReview: () => openReviewSheet(),
   });
+}
+
+// --- Google Calendar -----------------------------------------------------------
+
+let syncing = false;
+
+/** Pull events from Google. interactive=false means "only if no pop-up is needed". */
+async function syncNow({ interactive = true } = {}) {
+  if (syncing) return;
+  syncing = true;
+  if (interactive) toast('Syncing…');
+  try {
+    const r = await gcalSync(state, { interactive });
+    commit();
+    const bits = [];
+    if (r.added) bits.push(`${r.added} new`);
+    if (r.updated) bits.push(`${r.updated} updated`);
+    if (r.review) bits.push(`${r.review} to review`);
+    toast(bits.length ? `Synced: ${bits.join(', ')}` : 'Synced – nothing new');
+  } catch (err) {
+    if (interactive) toast(err.message || 'Sync failed.', 4000);
+    else console.info('Auto-sync skipped:', err.message);
+  } finally {
+    syncing = false;
+  }
+}
+
+/** Calendar events that didn't match a course: assign one or ignore them. */
+function openReviewSheet() {
+  const items = state.gcal.review || [];
+  const content = items.length
+    ? h('ul', { class: 'review-list' }, items.map((item) => {
+      const pick = h('select', {}, h('option', { value: '', text: 'Choose a course…' }),
+        state.courses.map((c) => h('option', { value: c.id, text: c.code })));
+      return h('li', { class: 'mini-card' },
+        h('strong', { text: item.title }),
+        h('span', { class: 'muted', text: formatDue(new Date(item.allDay ? fromLocal(item.start, '23:59') : item.start)) }),
+        h('div', { class: 'row' },
+          pick,
+          h('div', { class: 'btn-row tight' },
+            h('button', { class: 'btn btn-primary btn-small', type: 'button', onclick: () => {
+              if (!pick.value) { toast('Pick a course first.'); return; }
+              assignReviewItem(state, item.eventId, pick.value);
+              commit(); toast('Task added'); openReviewSheet();
+            } }, 'Add'),
+            h('button', { class: 'btn btn-small', type: 'button', onclick: () => {
+              ignoreReviewItem(state, item.eventId);
+              commit(); openReviewSheet();
+            } }, 'Ignore'))));
+    }))
+    : emptyState('Nothing left to review.');
+  openSheet('Review calendar events', [
+    h('p', { class: 'hint', text: 'These events didn\'t mention a course. Add them as tasks or ignore them (ignored events stay hidden on future syncs).' }),
+    content,
+  ]);
 }
 
 function addTask(presets = {}) {
@@ -303,6 +361,7 @@ function init() {
     if (TABS.includes(t) && t !== prefs.tab) setTab(t);
   });
 
+  storage.save(state);   // first launch: write the defaults so a backup always has something in it
   render();
 
   // Keep countdowns fresh: redraw Home/Week every 30 s (unless a sheet is open).
@@ -320,6 +379,11 @@ function init() {
   });
 
   registerServiceWorker();
+
+  // Auto-sync on open, but only when Google won't need to show a pop-up.
+  if (state.settings.gcalConnected && hasValidToken() && navigator.onLine) {
+    syncNow({ interactive: false });
+  }
 }
 
 /** Turn on offline support. Only works over http(s), not when opening the file directly. */

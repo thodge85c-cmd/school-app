@@ -60,6 +60,74 @@ Your phone and computer must be on the same Wi-Fi.
 Offline mode and "Add to Home Screen" only fully work over HTTPS, which you
 get for free once the site is on GitHub Pages.
 
+## Google Calendar sync (Stage 2)
+
+The app can read your Google Calendar and turn events into tasks. It only
+ever *reads*. To make this work you need a free "Client ID" from Google, a
+one-time job that takes about ten minutes. The Client ID is safe to be
+public; there is no secret involved.
+
+### 1. Create a Google Cloud project
+
+1. Go to <https://console.cloud.google.com/> and sign in with the Google
+   account whose calendar you use.
+2. At the top, click the project dropdown → **New project**. Name it
+   `Grif Planner` and click **Create**. Make sure it is selected afterwards.
+
+### 2. Turn on the Calendar API
+
+1. Menu (☰) → **APIs & Services** → **Library**.
+2. Search for **Google Calendar API**, open it, click **Enable**.
+
+### 3. Set up the consent screen (what the pop-up says)
+
+1. **APIs & Services** → **OAuth consent screen** (Google sometimes calls this
+   "Google Auth Platform" → "Branding").
+2. Choose **External**, then **Create**.
+3. App name: `Grif Planner`. User support email: your email. Developer
+   contact: your email. Save and continue through the remaining steps; you
+   don't need to add scopes here.
+4. Find **Audience** (or "Test users") and add your own Gmail address as a
+   test user. Leave the app in **Testing** mode. In testing mode only the
+   test users you list can sign in, which is exactly what you want.
+
+### 4. Create the Client ID
+
+1. **APIs & Services** → **Credentials** → **Create credentials** →
+   **OAuth client ID**.
+2. Application type: **Web application**. Name: `Grif Planner web`.
+3. Under **Authorized JavaScript origins** click **Add URI** for each of:
+   - `http://localhost:8000`
+   - `https://thodge85c-cmd.github.io`
+4. Leave "Authorized redirect URIs" empty. Click **Create**.
+5. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`).
+
+### 5. Put the Client ID in the app
+
+Either of these works:
+
+- **Easiest:** open the app → Settings → Google Calendar → paste it into the
+  "Google Client ID" box.
+- **Permanent:** open `js/gcal.js` and paste it between the quotes on the line
+  `export const CLIENT_ID = '';`, then push the update.
+
+### 6. Connect and sync
+
+1. Settings → **Connect Google Calendar**. A Google pop-up asks you to allow
+   read-only calendar access. Approve it. (While the app is in Testing mode
+   Google shows a "this app isn't verified" warning; click *Continue*.)
+2. Tick the calendars you want to pull from, then tap **Sync now**.
+3. Events whose title mentions a course code (`ACCT*1220`, `ACCT 1220`,
+   `ACCT`) or course name become tasks. Anything else appears under
+   **Tasks → calendar events to review**, where you assign a course or ignore it.
+4. Re-syncing updates titles and dates of imported tasks but keeps anything
+   you set by hand (done, grade, weight).
+
+Google's sign-in token lasts about an hour. The app auto-syncs when you open
+it if the token is still fresh; otherwise tap **Sync** on the Tasks tab. On
+an iPhone home-screen app the sign-in opens in a small Safari window and
+returns to the app when done.
+
 ## Pushing an update
 
 1. Edit the files.
@@ -81,7 +149,7 @@ get for free once the site is on GitHub Pages.
 ## Roadmap
 
 - **Stage 1 (done):** Home, Week, Tasks and Settings tabs; offline; backups.
-- **Stage 2:** Read-only Google Calendar sync.
+- **Stage 2 (done):** Read-only Google Calendar sync.
 - **Stage 3:** "Plan my week" study-block generator.
 - **Stage 4:** Grades tab with "what do I need?" maths.
 - **Stage 5:** Syllabus paste-to-tasks, per-course notes, exam mode.
